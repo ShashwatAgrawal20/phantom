@@ -12,23 +12,30 @@ typedef enum {
     IN_UNORDERED_LIST
 } parser_state_e;
 
+#define return_defer(value) \
+    do {                    \
+        result = (value);   \
+        goto defer;         \
+    } while (0)
+
 int convert_file(const char *md_path, const char *html_path) {
-    FILE *md_file, *html_file;
-    char line[1024];
+    FILE *md_file = NULL, *html_file = NULL;
+    char *line = NULL;
+    size_t len = 0;
+    int result = 0;
     parser_state_e state = OUTSIDE;
     int list_item_number = 1;
 
     md_file = fopen(md_path, "r");
     if (!md_file) {
         fprintf(stderr, "Error: cannot open %s\n", md_path);
-        return 1;
+        return_defer(1);
     }
 
     html_file = fopen(html_path, "w");
     if (!html_file) {
         fprintf(stderr, "Error: Cannot create %s\n", html_path);
-        fclose(md_file);
-        return 1;
+        return_defer(1);
     }
 
     fprintf(html_file,
@@ -64,7 +71,7 @@ int convert_file(const char *md_path, const char *html_path) {
             "<body>\n",
             md_path);
 
-    while (fgets(line, sizeof(line), md_file)) {
+    while (getline(&line, &len, md_file) != -1) {
         line[strcspn(line, "\r\n")] = 0;
 
         if (strncmp(line, "```", 3) == 0) {
@@ -105,18 +112,12 @@ int convert_file(const char *md_path, const char *html_path) {
         }
 
         if ((state == IN_ORDERED_LIST || state == IN_UNORDERED_LIST) &&
-            !(line[0] == '-' && line[1] == ' ') &&
-            !(isdigit(line[0]) && line[1] == '.' && line[2] == ' ') &&
-            line[0] != '\0') {
-            if (state == IN_ORDERED_LIST) {
-                fprintf(html_file, "</ol>\n");
-                state = OUTSIDE;
-                list_item_number = 1;
-            }
-            if (state == IN_UNORDERED_LIST) {
-                fprintf(html_file, "</ul>\n");
-                state = OUTSIDE;
-            }
+            !(line[0] == '-' && line[1] == ' ') && !isdigit(line[0]) &&
+            !(line[1] == '.' && line[2] == ' ')) {
+            if (state == IN_ORDERED_LIST) fprintf(html_file, "</ol>\n");
+            if (state == IN_UNORDERED_LIST) fprintf(html_file, "</ul>\n");
+            state = OUTSIDE;
+            list_item_number = 1;
         }
 
         if (line[0] == '\0') {
@@ -136,14 +137,25 @@ int convert_file(const char *md_path, const char *html_path) {
                 fprintf(html_file, "<ul>\n");
             }
             fprintf(html_file, "<li>%s</li>\n", line + 2);
-        } else if (isdigit(line[0]) && line[1] == '.' && line[2] == ' ') {
-            if (state != IN_ORDERED_LIST) {
-                state = IN_ORDERED_LIST;
-                list_item_number = atoi(line);
-                fprintf(html_file, "<ol start=\"%d\">\n", list_item_number);
+        } else if (isdigit(line[0])) {
+            char *num_end;
+            int number = strtol(line, &num_end, 10);
+            if (*num_end == '.' && num_end[1] == ' ') {
+                if (state != IN_ORDERED_LIST) {
+                    state = IN_ORDERED_LIST;
+                    list_item_number = number;
+                    fprintf(html_file, "<ol start=\"%d\">\n", list_item_number);
+                }
+                fprintf(html_file, "<li>%s</li>\n", num_end + 2);
+                list_item_number++;
+            } else {
+                if (state != IN_PARAGRAPH) {
+                    state = IN_PARAGRAPH;
+                    fprintf(html_file, "<p>%s\n", line);
+                    continue;
+                }
+                fprintf(html_file, "%s\n", line);
             }
-            fprintf(html_file, "<li>%s</li>\n", line + 3);
-            list_item_number++;
         } else {
             if (state != IN_PARAGRAPH) {
                 state = IN_PARAGRAPH;
@@ -160,9 +172,12 @@ int convert_file(const char *md_path, const char *html_path) {
     if (state == IN_CODE_BLOCK) fprintf(html_file, "</code></pre>\n");
 
     fprintf(html_file, "</body>\n</html>\n");
-    fclose(md_file);
-    fclose(html_file);
-    return 0;
+
+defer:
+    if (md_file) fclose(md_file);
+    if (html_file) fclose(html_file);
+    free(line);
+    return result;
 }
 
 int main(int argc, char *argv[]) {
