@@ -4,18 +4,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
-    bool in_paragraph;
-    bool in_code_block;
-    bool in_ordered_list;
-    bool in_unordered_list;
-    int list_item_number;
-} parser_state_t;
+typedef enum {
+    OUTSIDE,
+    IN_PARAGRAPH,
+    IN_CODE_BLOCK,
+    IN_ORDERED_LIST,
+    IN_UNORDERED_LIST
+} parser_state_e;
 
-int convert_file(const char *md_path, const char *html_path,
-                 parser_state_t *const parser_state) {
+int convert_file(const char *md_path, const char *html_path) {
     FILE *md_file, *html_file;
     char line[1024];
+    parser_state_e state = OUTSIDE;
+    int list_item_number = 1;
 
     md_file = fopen(md_path, "r");
     if (!md_file) {
@@ -67,21 +68,20 @@ int convert_file(const char *md_path, const char *html_path,
         line[strcspn(line, "\r\n")] = 0;
 
         if (strncmp(line, "```", 3) == 0) {
-            if (!parser_state->in_code_block) {
-                if (parser_state->in_paragraph) {
+            if (state != IN_CODE_BLOCK) {
+                if (state == IN_PARAGRAPH) {
                     fprintf(html_file, "</p>\n");
-                    parser_state->in_paragraph = 0;
                 }
-                parser_state->in_code_block = true;
+                state = IN_CODE_BLOCK;
                 fprintf(html_file, "<pre><code>");
             } else {
-                parser_state->in_code_block = 0;
+                state = OUTSIDE;
                 fprintf(html_file, "</code></pre>\n");
             }
             continue;
         }
 
-        if (parser_state->in_code_block) {
+        if (state == IN_CODE_BLOCK) {
             for (char *c = line; *c; c++) {
                 if (*c == '<')
                     fprintf(html_file, "&lt;");
@@ -99,24 +99,23 @@ int convert_file(const char *md_path, const char *html_path,
         int is_new_block =
             (*line == '\0' || *line == '#' || (*line == '-' && line[1] == ' '));
 
-        if (parser_state->in_paragraph && is_new_block) {
+        if (state == IN_PARAGRAPH && is_new_block) {
             fprintf(html_file, "</p>\n");
-            parser_state->in_paragraph = 0;
+            state = OUTSIDE;
         }
 
-        if ((parser_state->in_ordered_list ||
-             parser_state->in_unordered_list) &&
+        if ((state == IN_ORDERED_LIST || state == IN_UNORDERED_LIST) &&
             !(line[0] == '-' && line[1] == ' ') &&
             !(isdigit(line[0]) && line[1] == '.' && line[2] == ' ') &&
             line[0] != '\0') {
-            if (parser_state->in_ordered_list) {
+            if (state == IN_ORDERED_LIST) {
                 fprintf(html_file, "</ol>\n");
-                parser_state->in_ordered_list = 0;
-                parser_state->list_item_number = 1;
+                state = OUTSIDE;
+                list_item_number = 1;
             }
-            if (parser_state->in_unordered_list) {
+            if (state == IN_UNORDERED_LIST) {
                 fprintf(html_file, "</ul>\n");
-                parser_state->in_unordered_list = 0;
+                state = OUTSIDE;
             }
         }
 
@@ -132,23 +131,22 @@ int convert_file(const char *md_path, const char *html_path,
                 fprintf(html_file, "<p>%s</p>\n", line);
             }
         } else if (line[0] == '-' && line[1] == ' ') {
-            if (!parser_state->in_unordered_list) {
-                parser_state->in_unordered_list = 1;
+            if (state != IN_UNORDERED_LIST) {
+                state = IN_UNORDERED_LIST;
                 fprintf(html_file, "<ul>\n");
             }
             fprintf(html_file, "<li>%s</li>\n", line + 2);
         } else if (isdigit(line[0]) && line[1] == '.' && line[2] == ' ') {
-            if (!parser_state->in_ordered_list) {
-                parser_state->in_ordered_list = 1;
-                parser_state->list_item_number = atoi(line);
-                fprintf(html_file, "<ol start=\"%d\">\n",
-                        parser_state->list_item_number);
+            if (state != IN_ORDERED_LIST) {
+                state = IN_ORDERED_LIST;
+                list_item_number = atoi(line);
+                fprintf(html_file, "<ol start=\"%d\">\n", list_item_number);
             }
             fprintf(html_file, "<li>%s</li>\n", line + 3);
-            parser_state->list_item_number++;
+            list_item_number++;
         } else {
-            if (!parser_state->in_paragraph) {
-                parser_state->in_paragraph = 1;
+            if (state != IN_PARAGRAPH) {
+                state = IN_PARAGRAPH;
                 fprintf(html_file, "<p>\n%s\n", line);
                 continue;
             }
@@ -156,18 +154,10 @@ int convert_file(const char *md_path, const char *html_path,
         }
     }
 
-    if (parser_state->in_paragraph) {
-        fprintf(html_file, "</p>\n");
-    }
-    if (parser_state->in_ordered_list) {
-        fprintf(html_file, "</ol>\n");
-    }
-    if (parser_state->in_unordered_list) {
-        fprintf(html_file, "</ul>\n");
-    }
-    if (parser_state->in_code_block) {
-        fprintf(html_file, "</code></pre>\n");
-    }
+    if (state == IN_PARAGRAPH) fprintf(html_file, "</p>\n");
+    if (state == IN_ORDERED_LIST) fprintf(html_file, "</ol>\n");
+    if (state == IN_UNORDERED_LIST) fprintf(html_file, "</ul>\n");
+    if (state == IN_CODE_BLOCK) fprintf(html_file, "</code></pre>\n");
 
     fprintf(html_file, "</body>\n</html>\n");
     fclose(md_file);
@@ -176,7 +166,6 @@ int convert_file(const char *md_path, const char *html_path,
 }
 
 int main(int argc, char *argv[]) {
-    parser_state_t parser_state = {0};
     if (argc != 3 && argc != 2) {
         printf("Usage:\n");
         printf(" %s <input.md> <output.html> - convert single file\n", argv[0]);
@@ -186,7 +175,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (argc == 3) {
-        if (convert_file(argv[1], argv[2], &parser_state)) {
+        if (convert_file(argv[1], argv[2])) {
             fprintf(stderr, "Failed converting %s to %s\n", argv[1], argv[2]);
             return 1;
         }
