@@ -10,8 +10,7 @@ interface for writing and running unit tests with minimal setup.
 > to replace the current single-file approach.
 
 ## QUICK EXAMPLE
-1. Just copy-paste [tec.h](https://github.com/ShashwatAgrawal20/tec.h/blob/main/tec.h)
-   to your project.
+1. Just copy-paste [tec.h](https://github.com/ShashwatAgrawal20/tec.h/blob/main/tec.h) to your project.
 2. Include the header in your test file.
 3. Write your tests.
 4. Run your tests.
