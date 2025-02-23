@@ -1,6 +1,16 @@
 # Markdown to HTML converter
 
-## Run
+## Just Compiling the Code
 ```console
-clang -Wall -Wextra main.c -o main && ./main input/README.md test.html && firefox test.html
+make
+```
+
+## Compile and Run Together (with sample inputs)
+```console
+make run
+```
+
+## Clean Build Files
+```console
+make clean
 ```
