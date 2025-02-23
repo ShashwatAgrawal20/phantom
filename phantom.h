@@ -1,8 +1,13 @@
+#ifndef PHANTOM_H
+#define PHANTOM_H
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static inline int convert_file(const char *md_path, const char *html_path);
 
 typedef enum {
     OUTSIDE,
@@ -18,7 +23,22 @@ typedef enum {
         goto defer;         \
     } while (0)
 
-int convert_file(const char *md_path, const char *html_path) {
+static inline void print_help(const char *program_name) {
+    printf("Phantom Markdown to HTML Converter\n");
+    printf("\nUsage:\n");
+    printf(
+        "  %s <input.md> <output.html>   Convert a single Markdown file to "
+        "HTML\n",
+        program_name);
+    printf(
+        "  %s <input_directory>          Convert all Markdown files in a "
+        "directory (WIP)\n",
+        program_name);
+    printf("\nOptions:\n");
+    printf("  --help   Show this help message and exit\n");
+}
+
+static inline int convert_file(const char *md_path, const char *html_path) {
     FILE *md_file = NULL, *html_file = NULL;
     char *line = NULL;
     size_t len = 0;
@@ -179,23 +199,4 @@ defer:
     free(line);
     return result;
 }
-
-int main(int argc, char *argv[]) {
-    if (argc != 3 && argc != 2) {
-        printf("Usage:\n");
-        printf(" %s <input.md> <output.html> - convert single file\n", argv[0]);
-        printf(" %s <input_directory> - convert all .md files in directory\n",
-               argv[0]);
-        return 1;
-    }
-
-    if (argc == 3) {
-        if (convert_file(argv[1], argv[2])) {
-            fprintf(stderr, "Failed converting %s to %s\n", argv[1], argv[2]);
-            return 1;
-        }
-        printf("Converted %s to %s\n", argv[1], argv[2]);
-    }
-
-    return 0;
-}
+#endif
