@@ -44,43 +44,25 @@ static void print_help(const char *program_name) {
 static void _inline_formatting(FILE *html_file, const char *text) {
     bool in_bold = false, in_italic = false, in_code = false;
 
-    for (const char *c = text; *c; c++) {
+    for (const char *c = text; *c; ++c) {
         if (*c == '`' && !in_bold && !in_italic) {
-            if (!in_code) {
-                fprintf(html_file, "<code>");
-                in_code = true;
-            } else {
-                fprintf(html_file, "</code>");
-                in_code = false;
-            }
+            fprintf(html_file, in_code ? "</code>" : "<code>");
+            in_code = !in_code;
         } else if (*c == '*' && c[1] == '*' && !in_code) {
-            if (!in_bold) {
-                fprintf(html_file, "<strong>");
-                in_bold = true;
-            } else {
-                fprintf(html_file, "</strong>");
-                in_bold = false;
-            }
+            fprintf(html_file, in_bold ? "</strong>" : "<strong>");
+            in_bold = !in_bold;
             c++;
         } else if (*c == '*' && c[1] != '*' && !in_code && !in_bold) {
-            if (!in_italic) {
-                fprintf(html_file, "<em>");
-                in_italic = true;
-            } else {
-                fprintf(html_file, "</em>");
-                in_italic = false;
-            }
+            fprintf(html_file, in_italic ? "</em>" : "<em>");
+            in_italic = !in_italic;
         } else {
-            if (*c == '<')
-                fprintf(html_file, "&lt;");
-            else if (*c == '>')
-                fprintf(html_file, "&gt;");
-            else if (*c == '&')
-                fprintf(html_file, "&amp;");
-            else if (*c == '"')
-                fprintf(html_file, "&quot;");
-            else
-                fprintf(html_file, "%c", *c);
+            fprintf(html_file,
+                    (*c == '<')   ? "&lt;"
+                    : (*c == '>') ? "&gt;"
+                    : (*c == '&') ? "&amp;"
+                    : (*c == '"') ? "&quot;"
+                                  : "%c",
+                    *c);
         }
     }
 
@@ -105,7 +87,8 @@ static inline int convert_file(const char *md_path, const char *html_path) {
 
     html_file = fopen(html_path, "w");
     if (!html_file) {
-        fprintf(stderr, "Error: Cannot create %s\n", html_path);
+        fprintf(stderr, "Error: Cannot create %s: %s\n", html_path,
+                strerror(errno));
         return_defer(1);
     }
 
@@ -143,6 +126,7 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             md_path);
 
     while (getline(&line, &len, md_file) != -1) {
+        if (!line) return_defer(1);
         line[strcspn(line, "\r\n")] = 0;
 
         int is_new_block =
@@ -157,8 +141,8 @@ static inline int convert_file(const char *md_path, const char *html_path) {
         }
 
         if ((state == IN_ORDERED_LIST || state == IN_UNORDERED_LIST) &&
-            !(line[0] == '-' && line[1] == ' ') && !isdigit(line[0]) &&
-            !(line[1] == '.' && line[2] == ' ')) {
+            !(strncmp(line, "- ", 2) == 0) && !isdigit(line[0]) &&
+            !(strncmp(line + 1, ". ", 2) == 0)) {
             if (state == IN_ORDERED_LIST) fprintf(html_file, "</ol>\n");
             if (state == IN_UNORDERED_LIST) fprintf(html_file, "</ul>\n");
             list_item_number = 1;
@@ -168,7 +152,7 @@ static inline int convert_file(const char *md_path, const char *html_path) {
         if (strncmp(line, "```", 3) == 0) {
             if (state != IN_CODE_BLOCK) {
                 state = IN_CODE_BLOCK;
-                fprintf(html_file, "<pre><code>");
+                fprintf(html_file, "<pre><code>\n");
             } else {
                 state = OUTSIDE;
                 fprintf(html_file, "</code></pre>\n");
@@ -176,16 +160,13 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             continue;
         } else if (state == IN_CODE_BLOCK) {
             for (const char *c = line; *c; c++) {
-                if (*c == '<')
-                    fprintf(html_file, "&lt;");
-                else if (*c == '>')
-                    fprintf(html_file, "&gt;");
-                else if (*c == '&')
-                    fprintf(html_file, "&amp;");
-                else if (*c == '"')
-                    fprintf(html_file, "&quot;");
-                else
-                    fprintf(html_file, "%c", *c);
+                fprintf(html_file,
+                        (*c == '<')   ? "&lt;"
+                        : (*c == '>') ? "&gt;"
+                        : (*c == '&') ? "&amp;"
+                        : (*c == '"') ? "&quot;"
+                                      : "%c",
+                        *c);
             }
             fprintf(html_file, "\n");
             continue;
