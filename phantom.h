@@ -109,14 +109,15 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             "            line-height: 1.6;\n"
             "        }\n"
             "        pre {\n"
-            "            background-color: #f5f5f5;\n"
+            "            background-color: #e9e9e9;\n"
             "            padding: 1rem;\n"
             "            border-radius: 4px;\n"
+            "            border: 1px solid #ddd;\n"
             "            overflow: auto;\n"
             "        }\n"
             "        code {\n"
             "            font-family: 'SF Mono', Consolas, monospace;\n"
-            "            background-color: #f5f5f5;\n"
+            "            background-color: #e9e9e9;\n"
             "            padding: 0.2rem 0.4rem;\n"
             "            border-radius: 3px;\n"
             "        }\n"
@@ -152,7 +153,7 @@ static inline int convert_file(const char *md_path, const char *html_path) {
         if (strncmp(line, "```", 3) == 0) {
             if (state != IN_CODE_BLOCK) {
                 state = IN_CODE_BLOCK;
-                fprintf(html_file, "<pre><code>\n");
+                fprintf(html_file, "<pre><code>");
             } else {
                 state = OUTSIDE;
                 fprintf(html_file, "</code></pre>\n");
