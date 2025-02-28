@@ -9,8 +9,8 @@ $(TARGET): $(SOURCE)
 	$(CC) $(CFLAGS) -o $@ $^
 
 run: $(TARGET)
-	./phantom ./input/README.md test.html
+	./phantom ./input/README.md titties.html
 
 .PHONY: all clean
 clean:
-	rm -f $(TARGET) test.html
+	rm -f $(TARGET) titties.html

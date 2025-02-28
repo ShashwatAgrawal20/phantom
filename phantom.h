@@ -42,6 +42,8 @@ static void print_help(const char *program_name) {
 }
 
 static void _inline_formatting(FILE *html_file, const char *text) {
+    if (!html_file || !text) return;
+
     bool in_bold = false, in_italic = false, in_code = false;
 
     for (const char *c = text; *c; ++c) {
