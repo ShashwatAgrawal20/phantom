@@ -17,7 +17,8 @@ typedef enum {
     IN_PARAGRAPH,
     IN_CODE_BLOCK,
     IN_ORDERED_LIST,
-    IN_UNORDERED_LIST
+    IN_UNORDERED_LIST,
+    IN_BLOCKQUOTE
 } parser_state_e;
 
 #define return_defer(value) \
@@ -74,6 +75,11 @@ static void _inline_formatting(FILE *html_file, const char *text) {
 }
 
 static inline int convert_file(const char *md_path, const char *html_path) {
+    if (!md_path || !html_path) {
+        fprintf(stderr, "Error: NULL path provided\n");
+        return 1;
+    }
+
     FILE *md_file = NULL, *html_file = NULL;
     char *line = NULL;
     size_t len = 0;
@@ -120,8 +126,14 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             "        code {\n"
             "            font-family: 'SF Mono', Consolas, monospace;\n"
             "            background-color: #e9e9e9;\n"
-            "            padding: 0.2rem 0.4rem;\n"
+            "            padding: 0.1rem 0.4rem;\n"
             "            border-radius: 3px;\n"
+            "        }\n"
+            "        blockquote {\n"
+            "            border-left: 4px solid #ccc;\n"
+            "            padding-left: 10px;\n"
+            "            color: #666;\n"
+            "            font-style: italic;\n"
             "        }\n"
             "    </style>\n"
             "</head>\n"
@@ -136,7 +148,8 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             (*line == '\0' || *line == '#' || (strncmp(line, "```", 3) == 0) ||
              (strncmp(line, "- ", 2) == 0) ||
              (isdigit(*line) &&
-              strstr(line, ". ") == line + strspn(line, "0123456789")));
+              strstr(line, ". ") == line + strspn(line, "0123456789")) ||
+             (strncmp(line, "> ", 2) == 0));
 
         if (state == IN_PARAGRAPH && is_new_block) {
             fprintf(html_file, "</p>\n");
@@ -149,6 +162,12 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             if (state == IN_ORDERED_LIST) fprintf(html_file, "</ol>\n");
             if (state == IN_UNORDERED_LIST) fprintf(html_file, "</ul>\n");
             list_item_number = 1;
+            state = OUTSIDE;
+        }
+
+        if (state == IN_BLOCKQUOTE &&
+            (!(strncmp(line, "> ", 2) == 0) || *line == '\0')) {
+            fprintf(html_file, "</p></blockquote>\n");
             state = OUTSIDE;
         }
 
@@ -205,6 +224,13 @@ static inline int convert_file(const char *md_path, const char *html_path) {
                 fprintf(html_file, "</li>\n");
                 list_item_number++;
             }
+        } else if (strncmp(line, "> ", 2) == 0) {
+            if (state != IN_BLOCKQUOTE) {
+                state = IN_BLOCKQUOTE;
+                fprintf(html_file, "<blockquote><p>");
+            }
+            _inline_formatting(html_file, line + 2);
+            fprintf(html_file, "\n");
         } else {
             if (state != IN_PARAGRAPH) {
                 state = IN_PARAGRAPH;
@@ -221,6 +247,7 @@ static inline int convert_file(const char *md_path, const char *html_path) {
     if (state == IN_ORDERED_LIST) fprintf(html_file, "</ol>\n");
     if (state == IN_UNORDERED_LIST) fprintf(html_file, "</ul>\n");
     if (state == IN_CODE_BLOCK) fprintf(html_file, "</code></pre>\n");
+    if (state == IN_BLOCKQUOTE) fprintf(html_file, "</p></blockquote>\n");
 
     fprintf(html_file, "</body>\n</html>\n");
 
