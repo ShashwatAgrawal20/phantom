@@ -58,6 +58,20 @@ static void _inline_formatting(FILE *html_file, const char *text) {
         } else if (*c == '*' && c[1] != '*' && !in_code && !in_bold) {
             fprintf(html_file, in_italic ? "</em>" : "<em>");
             in_italic = !in_italic;
+        } else if (*c == '[') {
+            const char *end_bracket = strchr(c, ']');
+            const char *start_paren =
+                end_bracket ? strchr(end_bracket, '(') : NULL;
+            const char *end_paren =
+                start_paren ? strchr(start_paren, ')') : NULL;
+            if (end_bracket && start_paren && end_paren) {
+                fprintf(html_file, "<a href=\"%.*s\">%.*s</a>",
+                        (int)(end_paren - start_paren - 1), start_paren + 1,
+                        (int)(end_bracket - c - 1), c + 1);
+                c = end_paren;
+            } else {
+                fprintf(html_file, "%c", *c);
+            }
         } else {
             fprintf(html_file,
                     (*c == '<')   ? "&lt;"
