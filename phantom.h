@@ -245,6 +245,9 @@ static inline int convert_file(const char *md_path, const char *html_path) {
             }
             _inline_formatting(html_file, line + 2);
             fprintf(html_file, "\n");
+        } else if (strcmp(line, "---") == 0 || strcmp(line, "***") == 0) {
+            fprintf(html_file, "<hr>\n");
+            continue;
         } else {
             if (state != IN_PARAGRAPH) {
                 state = IN_PARAGRAPH;
