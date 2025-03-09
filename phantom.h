@@ -48,14 +48,17 @@ static void _inline_formatting(FILE *html_file, const char *text) {
     bool in_bold = false, in_italic = false, in_code = false;
 
     for (const char *c = text; *c; ++c) {
-        if (*c == '`' && !in_bold && !in_italic) {
+        if (*c == '\\' && (c[1] == '*' || c[1] == '`' || c[1] == '[')) {
+            fprintf(html_file, "%c", c[1]);
+            c++;
+        } else if (*c == '`' && !in_bold && !in_italic) {
             fprintf(html_file, in_code ? "</code>" : "<code>");
             in_code = !in_code;
         } else if (*c == '*' && c[1] == '*' && !in_code) {
             fprintf(html_file, in_bold ? "</strong>" : "<strong>");
             in_bold = !in_bold;
             c++;
-        } else if (*c == '*' && c[1] != '*' && !in_code && !in_bold) {
+        } else if (*c == '*' && c[1] != '*' && !in_code) {
             fprintf(html_file, in_italic ? "</em>" : "<em>");
             in_italic = !in_italic;
         } else if (*c == '[') {
