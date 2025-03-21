@@ -8,10 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int convert_file(const char *md_path, const char *html_path);
-static void print_help(const char *program_name);
-static void _inline_formatting(FILE *html_file, const char *text);
-
 typedef enum {
     OUTSIDE,
     IN_PARAGRAPH,
@@ -27,7 +23,7 @@ typedef enum {
         goto defer;         \
     } while (0)
 
-static void print_help(const char *program_name) {
+static inline void print_help(const char *program_name) {
     printf("Phantom Markdown to HTML Converter\n");
     printf("\nUsage:\n");
     printf(
@@ -42,7 +38,7 @@ static void print_help(const char *program_name) {
     printf("  --help   Show this help message and exit\n");
 }
 
-static void _inline_formatting(FILE *html_file, const char *text) {
+static inline void _inline_formatting(FILE *html_file, const char *text) {
     if (!html_file || !text) return;
 
     bool in_bold = false, in_italic = false, in_code = false;
